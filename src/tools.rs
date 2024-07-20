@@ -11,6 +11,16 @@ static LITTLE_CONSTANT: f64 = 0.02f64;
 static VEC_1: Vector = Vector {x : 1f64, y : 0f64, z : 0f64};
 static VEC_2: Vector = Vector {x : 0f64, y : 1f64, z : 0f64};
 
+
+/*
+ *  mode definition. 
+ * */
+pub enum Writemodes {
+    Centered,
+    ToLeft,
+    ToRight
+}
+
 /*
  *  structs definition.
  * */
@@ -206,6 +216,30 @@ impl Figure {
             _position,
         }
     }
+
+    pub fn square(height: usize, width: usize, _position: Vector) -> Figure {
+        let wby2: f64 = (width / 2) as f64;
+        let hby2: f64 = (height / 2) as f64;
+        let vect: Vec<Vector> = vec![
+            Vector {x:  wby2, y:  hby2, z: 0f64}, 
+            Vector {x: -wby2, y:  hby2, z: 0f64}, 
+            Vector {x: -wby2, y: -hby2, z: 0f64}, 
+            Vector {x:  wby2, y: -hby2, z: 0f64}, 
+        ];
+        
+        let mut lines: Vec<Line> = Vec::new();
+
+        lines.push(Line {_begin: vect[0], _end: vect[1]});
+        lines.push(Line {_begin: vect[1], _end: vect[2]});
+        lines.push(Line {_begin: vect[2], _end: vect[3]});
+        lines.push(Line {_begin: vect[3], _end: vect[0]});
+        
+        Figure {
+            _lines: lines,
+            _position,
+        }
+    }
+
     pub fn rotate_in_x(&mut self, alpha: f64) {
         for vect in &mut self._lines {
             vect.rotate_in_x(alpha);
@@ -273,6 +307,7 @@ impl Window {
     }
     
     pub fn print(&self) {
+        clearscreen::clear().expect("failed to clear screen");
         for i in 0..self._height {
             for j in 0..self._width {
                 print!("{}", self._Window[i*self._width + j]);
@@ -286,31 +321,27 @@ impl Window {
     pub fn draw(&mut self, fig: &mut Figure) {
         let hei: i64 = self._height as i64 / 2;
         let wid: i64 = self._width as i64 / 2;
-        let mut coef1: f64;
-        let mut coef2: f64;
         let iter = fig._lines.iter();
         for Line in iter {
             // proyect the begin Vector in the plane of the scream (this part can be used in the
             // general case).
-            let beg = Line._begin.sum(fig._position);
+            let vec_b = Line._begin.sum(fig._position);
 
-            coef1 = beg.scalar_prod(self._plane_vec_1);
-            coef2 = beg.scalar_prod(self._plane_vec_2);
-            
-            let beg = self._plane_vec_1.mul(coef1).sum(self._plane_vec_2.mul(coef2));
+            let beg = self._plane_vec_1
+                .mul(vec_b.scalar_prod(self._plane_vec_1))
+                .sum(self._plane_vec_2.mul(vec_b.scalar_prod(self._plane_vec_2)));
             
             // proyect the end Vector in the plane of the scream (this part can be used in the
             // general case).
-            let end = Line._end.sum(fig._position);
+            let vec_e = Line._end.sum(fig._position);
 
-            coef1 = end.scalar_prod(self._plane_vec_1);
-            coef2 = end.scalar_prod(self._plane_vec_2);
-            
-            let end = self._plane_vec_1.mul(coef1).sum(self._plane_vec_2.mul(coef2));
+            let end = self._plane_vec_1
+                .mul(vec_e.scalar_prod(self._plane_vec_1))
+                .sum(self._plane_vec_2.mul(vec_e.scalar_prod(self._plane_vec_2)));
 
             // draw Line in the Window, making small steps.
-            coef1 = beg.x;
-            coef2 = beg.y;
+            let mut coef1: f64 = beg.x;
+            let mut coef2: f64 = beg.y;
             let mut acoef = 0f64;
 
             while acoef < 1f64 {
@@ -331,5 +362,28 @@ impl Window {
             }
         }
     }
-}
 
+    pub fn write (&mut self, text: &str, ph: f64, pw: f64, mode: Writemodes) {
+        let hegiht: usize = ((self._height as f64) * ph) as usize;
+        let width: usize = ((self._width as f64) * pw) as usize;
+        let length: usize = text.len();
+        let textc: &[u8] = text.as_bytes();
+        match mode {
+            Writemodes::Centered => {
+                let lenby2: usize = length / 2usize;
+                if lenby2 <= width / 2 && true {
+                    for i in 0..length {
+                        let j = i + width - lenby2 + 1;
+                        self._Window[j + self._width*hegiht] = textc[i] as char;
+                    }
+                }
+            },
+            Writemodes::ToLeft => {
+
+            },
+            Writemodes::ToRight=> {
+
+            },
+        }
+    }
+}
