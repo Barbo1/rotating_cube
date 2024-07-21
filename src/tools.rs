@@ -1,16 +1,4 @@
-
-/*
- *  this is the lenght that a window needs to print lines. If were too large the lines dont will be
- *  printed correctly, if were too small the program will take so much time to print a line.
- * */
-static LITTLE_CONSTANT: f64 = 0.02f64;
-
-/*
- *  plane scream vectors(i will change the manner of usage).
- * */
-static VEC_1: Vector = Vector {x : 1f64, y : 0f64, z : 0f64};
-static VEC_2: Vector = Vector {x : 0f64, y : 1f64, z : 0f64};
-
+use termion::color::*;
 
 /*
  *  mode definition. 
@@ -41,8 +29,14 @@ pub struct Line {
 pub struct Figure {
     _position : Vector,
     _lines : Vec<Line>,
+    _color : &'static dyn Color
 }
 
+#[derive(Clone)]
+pub struct WinElem {
+    _data: char,
+    _color: &'static dyn Color,
+}
 pub struct Window {
     // this Vectors form the plane where the Lines will be drawed.
     _plane_vec_1: Vector,
@@ -51,8 +45,25 @@ pub struct Window {
     // this is the information of the Windows.
     _height: usize,
     _width: usize, 
-    _Window: Vec<char>,
+    _Window: Vec<WinElem>,
 }
+
+
+/*
+ *  this is the lenght that a window needs to print lines. If were too large the lines dont will be
+ *  printed correctly, if were too small the program will take so much time to print a line.
+ * */
+static LITTLE_CONSTANT: f64 = 0.02f64;
+
+/*
+ *  plane scream vectors(i will change the manner of usage).
+ * */
+static VEC_1: Vector = Vector {x : 1f64, y : 0f64, z : 0f64};
+static VEC_2: Vector = Vector {x : 0f64, y : 1f64, z : 0f64};
+
+static PRINT_CHAR: char = '•';
+const WHITE_COLOR: &dyn Color = &Rgb(255, 255, 255);
+const EMPTY_CELL: WinElem = WinElem {_data: ' ', _color: WHITE_COLOR};
 
 
 /*
@@ -128,7 +139,7 @@ impl Line {
 }
 
 impl Figure {
-    pub fn cube(dimention: f64, _position: Vector) -> Figure {
+    pub fn cube(dimention: f64, _position: Vector, _color: &'static dyn Color) -> Figure {
         let dim = dimention / 2f64;
         let mut vects : Vec<Vector> = vec![
             Vector {x: dim, y: dim, z: dim}, 
@@ -156,10 +167,11 @@ impl Figure {
         Figure {
             _lines: lines,
             _position,
+            _color
         }
     }
 
-    pub fn ruby(dimention: f64, _position: Vector) -> Figure { 
+    pub fn ruby(dimention: f64, _position: Vector, _color: &'static dyn Color) -> Figure { 
         let dim = dimention / 2f64;
         let med =  dim * 3f64 / 4f64;
         let vect : Vec<Vector> = vec![
@@ -189,10 +201,11 @@ impl Figure {
         Figure {
             _lines: lines,
             _position,
+            _color
         }
     }
 
-    pub fn pyramid(dimention: f64, _position: Vector) -> Figure { 
+    pub fn pyramid(dimention: f64, _position: Vector, _color: &'static dyn Color) -> Figure { 
         let dcos = dimention * (std::f64::consts::PI / 3f64).cos();
         let dsen = dimention * (std::f64::consts::PI / 3f64).sin();
         let vect : Vec<Vector> = vec![
@@ -214,10 +227,11 @@ impl Figure {
         Figure {
             _lines: lines,
             _position,
+            _color
         }
     }
 
-    pub fn square(height: usize, width: usize, _position: Vector) -> Figure {
+    pub fn square(height: usize, width: usize, _position: Vector, _color: &'static dyn Color) -> Figure {
         let wby2: f64 = (width / 2) as f64;
         let hby2: f64 = (height / 2) as f64;
         let vect: Vec<Vector> = vec![
@@ -237,6 +251,7 @@ impl Figure {
         Figure {
             _lines: lines,
             _position,
+            _color
         }
     }
 
@@ -266,19 +281,23 @@ impl Window {
             _plane_vec_2: VEC_2,
             _height,
             _width,
-            _Window: vec![' '; _height * _width],
+            _Window: vec![EMPTY_CELL; _height * _width],
         }
     }
     
     pub fn get_new_term_size() -> Window {
-        let h = term_size::dimensions().unwrap().1 - 1; 
-        let w = term_size::dimensions().unwrap().0; 
+        let dims = match termion::terminal_size() {
+            Ok(result) => result,
+            Err(_) => panic!("Was imposible to get the dimentions of the termianl."),
+        };
+        let h = dims.1 as usize - 1;
+        let w = dims.0 as usize;
         Window {
             _plane_vec_1: VEC_1,
             _plane_vec_2: VEC_2,
             _height: h,
             _width: w,
-            _Window: vec![' '; h * w],
+            _Window: vec![EMPTY_CELL; h * w],
         }
     }
 
@@ -291,9 +310,10 @@ impl Window {
     }
 
     pub fn clear(&mut self) {
+        clearscreen::clear().expect("failed to clear the screen.");
         for i in 0..self._height {
             for j in 0..self._width {
-                self._Window[i*self._width + j] = ' ';
+                self._Window[i*self._width + j] = EMPTY_CELL;
             }
         }
     }
@@ -301,19 +321,21 @@ impl Window {
     pub fn fill(&mut self, character: char) {
         for i in 0..self._height {
             for j in 0..self._width {
-                self._Window[i*self._width + j] = character;
+                self._Window[i*self._width + j] = WinElem{_data: character, _color: WHITE_COLOR};
             }
         }
     }
     
     pub fn print(&self) {
-        clearscreen::clear().expect("failed to clear screen");
+        let mut result: String = "".to_string();
         for i in 0..self._height {
             for j in 0..self._width {
-                print!("{}", self._Window[i*self._width + j]);
+                let elem = &self._Window[i*self._width + j];
+                result.push_str(&format!("{}{}", Fg(elem._color), elem._data));
             }
-            println!("");
+            result.push_str("\n");
         }
+        print!("{}", result);
     }
 
     /* To draw the Figure, first it will be moved to not intersect with the plane in which will be
@@ -322,10 +344,10 @@ impl Window {
         let hei: i64 = self._height as i64 / 2;
         let wid: i64 = self._width as i64 / 2;
         let iter = fig._lines.iter();
-        for Line in iter {
+        for line in iter {
             // proyect the begin Vector in the plane of the scream (this part can be used in the
             // general case).
-            let vec_b = Line._begin.sum(fig._position);
+            let vec_b = line._begin.sum(fig._position);
 
             let beg = self._plane_vec_1
                 .mul(vec_b.scalar_prod(self._plane_vec_1))
@@ -333,7 +355,7 @@ impl Window {
             
             // proyect the end Vector in the plane of the scream (this part can be used in the
             // general case).
-            let vec_e = Line._end.sum(fig._position);
+            let vec_e = line._end.sum(fig._position);
 
             let end = self._plane_vec_1
                 .mul(vec_e.scalar_prod(self._plane_vec_1))
@@ -348,7 +370,7 @@ impl Window {
                 let x = (coef1.round() as i64) + wid;
                 let y = (coef2.round() as i64) + hei;
                 if 0 <= x && x < self._width as i64 && 0 <= y && y < self._height as i64 {
-                    self._Window[x as usize + self._width*y as usize] = '#';
+                    self._Window[x as usize + self._width*y as usize] = WinElem{_data: PRINT_CHAR, _color: fig._color};
                 }
 
                 coef1 = beg.x + acoef*(end.x - beg.x);
@@ -358,12 +380,12 @@ impl Window {
             let x = (coef1.round() as i64) + wid;
             let y = (coef2.round() as i64) + hei;
             if 0 <= x && x < self._width as i64 && 0 <= y && y < self._height as i64 {
-                self._Window[x as usize + self._width*y as usize] = '#';
+                self._Window[x as usize + self._width*y as usize] = WinElem{_data: PRINT_CHAR, _color: fig._color}; 
             }
         }
     }
 
-    pub fn write (&mut self, text: &str, ph: f64, pw: f64, mode: Writemodes) {
+    pub fn write (&mut self, text: &str, ph: f64, pw: f64, mode: Writemodes, color: &'static dyn Color) {
         let hegiht: usize = ((self._height as f64) * ph) as usize;
         let width: usize = ((self._width as f64) * pw) as usize;
         let length: usize = text.len();
@@ -374,7 +396,7 @@ impl Window {
                 if lenby2 <= width / 2 && true {
                     for i in 0..length {
                         let j = i + width - lenby2 + 1;
-                        self._Window[j + self._width*hegiht] = textc[i] as char;
+                        self._Window[j + self._width*hegiht] = WinElem {_data: textc[i] as char, _color: color};
                     }
                 }
             },
